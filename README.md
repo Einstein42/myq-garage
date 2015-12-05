@@ -1,7 +1,7 @@
 # myq-garage
 Python Chamberlain Garage Door interface
 
-Python I use to interface with my MyQ garage doors. 
+Python used to interface with my MyQ garage doors. 
 
 Load it as a module, or download it and chmod 755 myq-garage.py
 
