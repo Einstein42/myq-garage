@@ -28,9 +28,10 @@ SOFTWARE.
 
 import requests
 import sys
+import time
 
 # Put your login information here
-USERNAME = 'user@email.com'
+USERNAME = 'username@email.com'
 PASSWORD = 'password'
 
 # Do not change
@@ -52,6 +53,7 @@ STATES = ['',
 DOORNAME = ['','']
 DOORSTATE = ['','',]
 DOORLIST = ['','',]
+DOORTIME = ['','',]
 
 # Door Action = 0 for closed or 1 for open
 def set_doorstate(token, id, desired_state):
@@ -102,9 +104,9 @@ def get_doors(token):
     for device in data['Devices']:
         #MyQDeviceTypeId Doors == 2, Gateway == 1, Structure == 10, Thermostat == 11
         if device['MyQDeviceTypeId'] == 2:
-            DOORNAME[i] = get_doorname(token, device['DeviceId'])
+	    DOORNAME[i] = get_doorname(token, device['DeviceId'])
             DOORLIST[i] = device['DeviceId']
-            DOORSTATE[i] = get_doorstate(token, device['DeviceId'])
+            DOORSTATE[i], DOORTIME[i] = get_doorstate(token, device['DeviceId'])
             i += 1
             #print ('ID: ' + device['DeviceId'] + ' Type: ' + device['TypeName'] + ' is ' + state)
         #else:
@@ -116,10 +118,12 @@ def get_doorstate(token, id):
     doorstate_url = SERVICE + '/Device/getDeviceAttribute?appId=' + APPID + '&securityToken=' + token + '&devId=' + id + '&name=' + command
     r = requests.get(doorstate_url)
     data = r.json()
+    timestamp = float(data['UpdatedTime'])
+    timestamp = time.strftime("%a %d %b %Y %H:%M:%S", time.localtime(timestamp / 1000.0))
     if data['ReturnCode'] != '0':
         print (data['ErrorMessage'])
         sys.exit(3)
-    return STATES[int(data['AttributeValue'])]
+    return STATES[int(data['AttributeValue'])], timestamp
 
 def get_doorname(token, id):
     command = 'desc'
@@ -156,7 +160,7 @@ def gdoor_main():
     get_doors(token)
     if desired_state == 2:
         for i in DOORLIST:
-            print (DOORNAME[DOORLIST.index(i)] + ' is ' + DOORSTATE[DOORLIST.index(i)] )
+            print (DOORNAME[DOORLIST.index(i)] + ' is ' + DOORSTATE[DOORLIST.index(i)] + ' last change at ' + DOORTIME[DOORLIST.index(i)] )
     else:
         if int(sys.argv[2]) > len(DOORLIST):
             print('Invalid Door number: ' + sys.argv[2])
@@ -168,3 +172,4 @@ def gdoor_main():
 #####################################################
 if __name__ == "__main__":
     gdoor_main()
+
