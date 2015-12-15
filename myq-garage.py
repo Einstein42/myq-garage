@@ -29,6 +29,7 @@ SOFTWARE.
 import requests
 import sys
 import time
+requests.packages.urllib3.disable_warnings()
 
 # Put your login information here
 USERNAME = 'username@email.com'
@@ -172,4 +173,3 @@ def gdoor_main():
 #####################################################
 if __name__ == "__main__":
     gdoor_main()
-
