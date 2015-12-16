@@ -9,9 +9,11 @@ Edit the file and put your myq username and password. Including ISY information 
 
 Then use like so:
 
-Command Line options:  ./myq-garage.py [open/close/status] [door number]
+Command Line options:  ./myq-garage.py [open/close/status] [door name]
 
-Requires the requests package in pythong
+Door name is the name you set in the MyQ webpage for the device.
+
+Requires the requests package in python
 
 If you don't have pip then install it. 'apt-get install python-pip'
 
