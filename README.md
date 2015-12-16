@@ -21,4 +21,10 @@ Then install the requests package 'pip install requests'
 
 DONT FORGET TO CREATE YOUR STATE VARIABLES IN THE ISY, it will tell you if you forgot.
 
+Variable format is ISY_VAR_PREFIX + MyQ Door name. Substitute any spaces with '_' as 
+ISY doesn't allow spaces in variable names.
+eg. 'Big Door' is my door name in MyQ and my variable prefix is MyQ_ so I create the variable MyQ_Big_Door
+
+Variable is set to 1 when open, 0 when closed.
+
 Cheers - E
