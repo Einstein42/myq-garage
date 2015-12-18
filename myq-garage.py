@@ -31,6 +31,7 @@ from requests.auth import HTTPBasicAuth
 from requests.utils import quote
 import sys
 import time
+import os
 import logging
 import logging.handlers
 # Try to use the C implementation first, falling back to python, these libraries are usually built-in libs. 
@@ -71,6 +72,8 @@ STATES = ['',
         
 def setup_log(name):
    # Log Location
+   if not os.path.exists('logs'):
+       os.makedirs('logs')
    LOG_FILENAME = "logs/myq-garage.log"
    LOG_LEVEL = logging.INFO  # Could be e.g. "DEBUG" or "WARNING"
 
