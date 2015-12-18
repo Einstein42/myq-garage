@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2.7
 
 ## Python to interface with MyQ garage doors.
 
@@ -31,6 +31,8 @@ from requests.auth import HTTPBasicAuth
 from requests.utils import quote
 import sys
 import time
+import logging
+import logging.handlers
 # Try to use the C implementation first, falling back to python, these libraries are usually built-in libs. 
 try:
     from xml.etree import cElementTree as ElementTree
@@ -39,13 +41,13 @@ except ImportError, e:
 requests.packages.urllib3.disable_warnings()
 
 # Put your login information here
-USERNAME = 'user@id.com'
+USERNAME = 'user@email.com'
 PASSWORD = 'password'
 
 # ISY Configuration
 # Set USE_ISY = False if you don't wish to use the ISY features
 USE_ISY = True
-ISY_HOST = 'isy ip address'
+ISY_HOST = 'isy.ip.address'
 ISY_PORT = '80'
 ISY_USERNAME = 'admin'
 ISY_PASSWORD = 'password'
@@ -53,7 +55,6 @@ ISY_VAR_PREFIX = 'MyQ_'
 
 # Do not change this is the URL for the MyQ API
 SERVICE = 'https://myqexternal.myqdevice.com'
-
 
 # Do not change the APPID or CULTURE this is global for the MyQ API
 APPID = 'Vj8pQggXLhLy0WHahglCD4N1nAkkXQtGYpq2HrHD7H1nvmbT55KqtN6RSF4ILB%2fi'
@@ -67,6 +68,42 @@ STATES = ['',
         'Opening',
         'Closing',
         ]
+        
+def setup_log(name):
+   # Log Location
+   LOG_FILENAME = "logs/myq-garage.log"
+   LOG_LEVEL = logging.INFO  # Could be e.g. "DEBUG" or "WARNING"
+
+   #### Logging Section ################################################################################
+   LOGGER = logging.getLogger('sensors')
+   LOGGER.setLevel(LOG_LEVEL)
+   # Set the log level to LOG_LEVEL
+   # Make a handler that writes to a file, 
+   # making a new file at midnight and keeping 3 backups
+   HANDLER = logging.handlers.TimedRotatingFileHandler(LOG_FILENAME, when="midnight", backupCount=30)
+   # Format each log message like this
+   FORMATTER = logging.Formatter('%(asctime)s %(levelname)-8s %(message)s')
+   # Attach the formatter to the handler
+   HANDLER.setFormatter(FORMATTER)
+   # Attach the handler to the logger
+   LOGGER.addHandler(HANDLER)
+   return LOGGER
+
+class SensorLogger(object):
+    """ Logger Class """
+    def __init__(self, logger, level):
+        """Needs a logger and a logger level."""
+        self.logger = logger
+        self.level = level
+
+    def write(self, logmessage):
+        """ Only log if there is a message (not just a new line) """
+        if logmessage.rstrip() != "":
+            self.logger.log(self.level, logmessage.rstrip())
+
+    def read(self, logmessage):
+        """" Does nothing, pylist complained """
+        pass
         
 class DOOR:
     instances = []
@@ -86,36 +123,55 @@ def isy_set_var_state(id, name, varname, value):
     init, val = isy_get_var_state(id)
     if value == int(val):
         print varname, "is already set to", val
+        LOGGER.info('%s is already set to %s', varname, val)
         return
-    r = requests.get('http://' + ISY_HOST + ':' + ISY_PORT + '/rest/vars/set/2/' + id + '/' + str(value), auth=HTTPBasicAuth(ISY_USERNAME, ISY_PASSWORD))
+    try:
+        r = requests.get('http://' + ISY_HOST + ':' + ISY_PORT + '/rest/vars/set/2/' + id + '/' + str(value), auth=HTTPBasicAuth(ISY_USERNAME, ISY_PASSWORD))
+    except requests.exceptions.RequestException as err:
+        LOGGER.erro('Caught Exception in isy_set_var_state: ' + err)
+        return
     if int(r.status_code) != 200:
         if int(r.status_code) == 404:
             print id, "not found on ISY. Response was 404"
+            LOGGER.error('%s not found on ISY. Response was 404', id)
         else:    
             print "Status change failed, response from ISY: ", r.status_code, r.text
+            LOGGER.error('Status change failed, response from ISY: %s - %s', r.status_code, r.text)
     else:
         print varname, "changed successfully to", value
   
 def isy_get_var_state(id):
-    r = requests.get('http://' + ISY_HOST + ':' + ISY_PORT + '/rest/vars/get/2/' + id, auth=HTTPBasicAuth(ISY_USERNAME, ISY_PASSWORD))
+    try:
+        r = requests.get('http://' + ISY_HOST + ':' + ISY_PORT + '/rest/vars/get/2/' + id, auth=HTTPBasicAuth(ISY_USERNAME, ISY_PASSWORD))
+    except requests.exceptions.RequestException as err:
+        LOGGER.erro('Caught Exception in isy_get_var_state: ' + err)
+        return        
     tree = ElementTree.fromstring(r.text)
     init = tree.find('init').text
     value = tree.find('val').text
+    LOGGER.info('Get_Var_State: init: %s - val: %s', init, value)
     return init, value
 
 def isy_get_var_id(name):
     varname = str(ISY_VAR_PREFIX + name.replace(" ", "_"))
-    r = requests.get('http://' + ISY_HOST + ':' + ISY_PORT + '/rest/vars/definitions/2', auth=HTTPBasicAuth(ISY_USERNAME, ISY_PASSWORD))
+    try:
+        r = requests.get('http://' + ISY_HOST + ':' + ISY_PORT + '/rest/vars/definitions/2', auth=HTTPBasicAuth(ISY_USERNAME, ISY_PASSWORD))
+    except requests.exceptions.RequestException as err:
+        LOGGER.erro('Caught Exception in isy_get_var_id: ' + err)
+        return  
+    LOGGER.info('Get_Var_ID: Request response: %s %s', r.status_code, r.text)
     tree = ElementTree.fromstring(r.text)
+    LOGGER.info('Searching ISY Definitions for %s', varname)
     child = tree.find('e[@name="' + varname + '"]')
     if child:
         id, name = child.get('id'), child.get('name')
-        #print id, name
+        LOGGER.info('State variable: %s found with ID: %s', name, id)        
     else:
         print("State variable: " + varname + " not found in ISY variable list")
         print("Fix your state variables on the ISY. Then enable the ISY section again.")
         sys.exit(5)
     init, value = isy_get_var_state(id)
+    LOGGER.info('ISY Get Var ID Return - id: %s - varname: %s - init: %s - value: %s', id, varname, init, value)
     return id, varname, init, value
   
 # Door Action = 0 for closed or 1 for open
@@ -136,7 +192,11 @@ def set_doorstate(token, name, desired_state):
                 'AttributeValue': desired_state, 
                 'SecurityToken': token
                 }
-            r = requests.put(post_url, data=payload)
+            try:
+                r = requests.put(post_url, data=payload)
+            except requests.exceptions.RequestException as err:
+                LOGGER.erro('Caught Exception in set_doorstate: ' + err)
+                return              
             data = r.json()
             if data['ReturnCode'] != '0':
                 print (data['ErrorMessage'])
@@ -146,7 +206,11 @@ def set_doorstate(token, name, desired_state):
 
 def get_token():
     login_url = SERVICE + '/Membership/ValidateUserWithCulture?appId=' + APPID + '&securityToken=null&username=' + USERNAME + '&password=' + PASSWORD + '&culture=' + CULTURE
-    r = requests.get(login_url)
+    try:
+        r = requests.get(login_url)
+    except requests.exceptions.RequestException as err:
+        LOGGER.erro('Caught Exception in get_token: ' + err)
+        return              
     data = r.json()
     if data['ReturnCode'] != '0':
         print (data['ErrorMessage'])
@@ -155,7 +219,11 @@ def get_token():
 
 def get_doors(token):
     system_detail = SERVICE + '/api/UserDeviceDetails?appId=' + APPID + '&securityToken=' + token
-    r = requests.get(system_detail)
+    try:
+        r = requests.get(system_detail)
+    except requests.exceptions.RequestException as err:
+        LOGGER.erro('Caught Exception in get_doors: ' + err)
+        return              
     data = r.json()
     if data['ReturnCode'] != '0':
         print (data['ErrorMessage'])
@@ -172,7 +240,11 @@ def get_doors(token):
 def get_doorstate(token, id):
     command = 'doorstate'
     doorstate_url = SERVICE + '/Device/getDeviceAttribute?appId=' + APPID + '&securityToken=' + token + '&devId=' + id + '&name=' + command
-    r = requests.get(doorstate_url)
+    try:
+        r = requests.get(doorstate_url)
+    except requests.exceptions.RequestException as err:
+        LOGGER.erro('Caught Exception in get_doorstate: ' + err)
+        return              
     data = r.json()
     timestamp = float(data['UpdatedTime'])
     timestamp = time.strftime("%a %d %b %Y %H:%M:%S", time.localtime(timestamp / 1000.0))
@@ -184,7 +256,11 @@ def get_doorstate(token, id):
 def get_doorname(token, id):
     command = 'desc'
     doorstate_url = SERVICE + '/Device/getDeviceAttribute?appId=' + APPID + '&securityToken=' + token + '&devId=' + id + '&name=' + command
-    r = requests.get(doorstate_url)
+    try:
+        r = requests.get(doorstate_url)
+    except requests.exceptions.RequestException as err:
+        LOGGER.erro('Caught Exception in get_doorname: ' + err)
+        return     
     data = r.json()
     if data['ReturnCode'] != '0':
         print (data['ErrorMessage'])
@@ -240,5 +316,10 @@ def gdoor_main():
 
 #####################################################
 if __name__ == "__main__":
+    LOGGER = setup_log('myq-garage')
+    # Replace stdout with logging to file at INFO level
+    # sys.stdout = SensorLogger(LOGGER, logging.INFO)
+    # Replace stderr with logging to file at ERROR level
+    sys.stderr = SensorLogger(LOGGER, logging.ERROR)
     gdoor_main()
 
