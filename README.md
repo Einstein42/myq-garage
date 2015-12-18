@@ -29,4 +29,14 @@ eg. 'Big Door' is my door name in MyQ and my variable prefix is MyQ_ so I create
 
 Variable is set to 1 when open, 0 when closed.
 
+If you want to run this so it updates your state variables in ISY automatically every 5 minutes
+you can add a crontab entry on your linux/raspbian like so:
+
+1. crontab -e
+2. new line at the botton
+3. */5 * * * * /path/to/myq-garage.py status
+
+I wouldn't recommend doing more than every 5 minutes as the Chamberlain MyQ API is 'unofficial' therefore if we 
+take down their servers from flooding them with requests, I doubt the'd be happy.
+
 Cheers - E
