@@ -48,7 +48,7 @@ PASSWORD = 'password'
 # ISY Configuration
 # Set USE_ISY = False if you don't wish to use the ISY features
 USE_ISY = True
-ISY_HOST = 'isy.ip.address'
+ISY_HOST = '<isy ip address>'
 ISY_PORT = '80'
 ISY_USERNAME = 'admin'
 ISY_PASSWORD = 'password'
@@ -61,6 +61,7 @@ SERVICE = 'https://myqexternal.myqdevice.com'
 APPID = 'Vj8pQggXLhLy0WHahglCD4N1nAkkXQtGYpq2HrHD7H1nvmbT55KqtN6RSF4ILB%2fi'
 CULTURE = 'en'
 
+
 # States value from API returns an interger, the index corresponds to the below list. Zero is not used. 
 STATES = ['',
         'Open',
@@ -72,9 +73,10 @@ STATES = ['',
         
 def setup_log(name):
    # Log Location
-   if not os.path.exists('logs'):
-       os.makedirs('logs')
-   LOG_FILENAME = "logs/myq-garage.log"
+   PATH = os.path.dirname(sys.argv[0])
+   if not os.path.exists(PATH + '/logs'):
+       os.makedirs(PATH + '/logs')
+   LOG_FILENAME = PATH + "/logs/myq-garage.log"
    LOG_LEVEL = logging.INFO  # Could be e.g. "DEBUG" or "WARNING"
 
    #### Logging Section ################################################################################
@@ -162,12 +164,16 @@ def isy_get_var_id(name):
     except requests.exceptions.RequestException as err:
         LOGGER.erro('Caught Exception in isy_get_var_id: ' + err)
         return  
-    LOGGER.info('Get_Var_ID: Request response: %s %s', r.status_code, r.text)
+    #LOGGER.info('Get_Var_ID: Request response: %s %s', r.status_code, r.text)
     tree = ElementTree.fromstring(r.text)
     LOGGER.info('Searching ISY Definitions for %s', varname)
-    child = tree.find('e[@name="' + varname + '"]')
-    if child:
-        id, name = child.get('id'), child.get('name')
+    valid = False
+    for e in tree.findall('e'):
+        if e.get('name') == varname:
+                valid = True
+                id, name = e.get('id'), e.get('name')
+    if valid:
+        #id, name = child.get('id'), child.get('name')
         LOGGER.info('State variable: %s found with ID: %s', name, id)        
     else:
         print("State variable: " + varname + " not found in ISY variable list")
@@ -296,6 +302,7 @@ def gdoor_main():
     if desired_state == 2:
         for inst in DOOR.instances:
             print (inst.name +' is ' + inst.state +  '. Last changed at ' + inst.time)
+            LOGGER.info('%s is %s. Last changed at %s', inst.name, inst.state, inst.time)
             if USE_ISY:
                 id, varname, init, value = isy_get_var_id(inst.name)
                 if inst.state == "Open": value = 1
@@ -320,6 +327,7 @@ def gdoor_main():
 #####################################################
 if __name__ == "__main__":
     LOGGER = setup_log('myq-garage')
+    LOGGER.info('==================================STARTED==================================')
     # Replace stdout with logging to file at INFO level
     # sys.stdout = SensorLogger(LOGGER, logging.INFO)
     # Replace stderr with logging to file at ERROR level
