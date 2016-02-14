@@ -55,9 +55,11 @@ ISY_PASSWORD = 'password'
 ISY_VAR_PREFIX = 'MyQ_'
 
 # Do not change this is the URL for the MyQ API
+# Change this to 'https://craftexternal.myqdevice.com' for Craftsman Assurelink Openers
 SERVICE = 'https://myqexternal.myqdevice.com'
 
 # Do not change the APPID or CULTURE this is global for the MyQ API
+# Change the APPID for the Craftsman device to 'eU97d99kMG4t3STJZO/Mu2wt69yTQwM0WXZA5oZ74/ascQ2xQrLD/yjeVhEQccBZ'
 APPID = 'Vj8pQggXLhLy0WHahglCD4N1nAkkXQtGYpq2HrHD7H1nvmbT55KqtN6RSF4ILB%2fi'
 CULTURE = 'en'
 
