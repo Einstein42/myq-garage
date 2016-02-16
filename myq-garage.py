@@ -34,7 +34,7 @@ import time
 import os
 import logging
 import logging.handlers
-from ConfigParser import SafeConfigParser
+from ConfigParser import RawConfigParser
 # Try to use the C implementation first, falling back to python, these libraries are usually built-in libs. 
 try:
     from xml.etree import cElementTree as ElementTree
@@ -42,12 +42,8 @@ except ImportError, e:
     from xml.etree import ElementTree
 requests.packages.urllib3.disable_warnings()
 
-config = SafeConfigParser()
+config = RawConfigParser()
 config.read('config.ini')
-
-print config.get('main', 'key1') # -> "value1"
-print config.get('main', 'key2') # -> "value2"
-print config.get('main', 'key3') # -> "value3"
 
 #main Configuration
 USERNAME = config.get('main', 'USERNAME')
@@ -63,16 +59,17 @@ ISY_PASSWORD = config.get('ISYConfiguration', 'USE_ISY')
 ISY_VAR_PREFIX = config.get('ISYConfiguration', 'USE_ISY')
 
 #MyQ API Configuration
-if (BRAND == 'Chamberlain'):
+if (BRAND == 'Chamberlain' or BRAND == 'chamberlain'):
     SERVICE = config.get('APIglobal', 'ChamberSERVICE')
     APPID = config.get('APIglobal', 'ChamberAPPID')
     CULTURE = 'en'
-elif (BRAND == 'Craftsman'):
+elif (BRAND == 'Craftsman' or BRAND == 'craftsman'):
     SERVICE = config.get('APIglobal', 'CraftSERVICE')
     APPID = config.get('APIglobal', 'CraftAPPID')
     CULTURE = 'en'
 else:
-    print "Invalid brand name check your configuration"
+    print BRAND
+    print " is not a valid brand name. Check your configuration"
 
 
 # States value from API returns an interger, the index corresponds to the below list. Zero is not used. 
