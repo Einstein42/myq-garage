@@ -34,11 +34,15 @@ import time
 import os
 import logging
 import logging.handlers
-from ConfigParser import RawConfigParser
+try:
+    from ConfigParser import RawConfigParser
+except ImportError as e:
+    from configparser import RawConfigParser
+
 # Try to use the C implementation first, falling back to python, these libraries are usually built-in libs. 
 try:
     from xml.etree import cElementTree as ElementTree
-except ImportError, e:
+except ImportError as e:
     from xml.etree import ElementTree
 requests.packages.urllib3.disable_warnings()
 
@@ -52,11 +56,11 @@ BRAND = config.get('main', 'BRAND')
 
 # ISY Configuration
 USE_ISY = config.get('ISYConfiguration', 'USE_ISY')
-ISY_HOST = config.get('ISYConfiguration', 'USE_ISY')
-ISY_PORT = config.get('ISYConfiguration', 'USE_ISY')
-ISY_USERNAME = config.get('ISYConfiguration', 'USE_ISY')
-ISY_PASSWORD = config.get('ISYConfiguration', 'USE_ISY')
-ISY_VAR_PREFIX = config.get('ISYConfiguration', 'USE_ISY')
+ISY_HOST = config.get('ISYConfiguration', 'ISY_HOST')
+ISY_PORT = config.get('ISYConfiguration', 'ISY_PORT')
+ISY_USERNAME = config.get('ISYConfiguration', 'ISY_USERNAME')
+ISY_PASSWORD = config.get('ISYConfiguration', 'ISY_PASSWORD')
+ISY_VAR_PREFIX = config.get('ISYConfiguration', 'ISY_VAR_PREFIX')
 
 #MyQ API Configuration
 if (BRAND == 'Chamberlain' or BRAND == 'chamberlain'):
@@ -68,8 +72,7 @@ elif (BRAND == 'Craftsman' or BRAND == 'craftsman'):
     APPID = config.get('APIglobal', 'CraftAPPID')
     CULTURE = 'en'
 else:
-    print BRAND
-    print " is not a valid brand name. Check your configuration"
+    print(BRAND, " is not a valid brand name. Check your configuration")
 
 
 # States value from API returns an interger, the index corresponds to the below list. Zero is not used. 
@@ -137,29 +140,29 @@ class DOOR:
 def isy_set_var_state(id, name, varname, value):
     init, val = isy_get_var_state(id)
     if value == int(val):
-        print varname, "is already set to", val
+        #print(varname, "is already set to ", val)
         LOGGER.info('%s is already set to %s', varname, val)
         return
     try:
         r = requests.get('http://' + ISY_HOST + ':' + ISY_PORT + '/rest/vars/set/2/' + id + '/' + str(value), auth=HTTPBasicAuth(ISY_USERNAME, ISY_PASSWORD))
     except requests.exceptions.RequestException as err:
-        LOGGER.erro('Caught Exception in isy_set_var_state: ' + err)
+        LOGGER.error('Caught Exception in isy_set_var_state: ' + str(err))
         return
     if int(r.status_code) != 200:
         if int(r.status_code) == 404:
-            print id, "not found on ISY. Response was 404"
-            LOGGER.error('%s not found on ISY. Response was 404', id)
-        else:    
-            print "Status change failed, response from ISY: ", r.status_code, r.text
-            LOGGER.error('Status change failed, response from ISY: %s - %s', r.status_code, r.text)
+            print(str(id), " not found on ISY. Response was 404")
+            LOGGER.error("%s not found on ISY. Response was 404", id)
+        else:
+            print("Status change failed, response from ISY: ", str(r.status_code), str(r.text))
+            LOGGER.error('Status change failed, response from ISY: %s - %s', str(r.status_code), str(r.text))
     else:
-        print varname, "changed successfully to", value
+        print(varname, "changed successfully to", value)
   
 def isy_get_var_state(id):
     try:
         r = requests.get('http://' + ISY_HOST + ':' + ISY_PORT + '/rest/vars/get/2/' + id, auth=HTTPBasicAuth(ISY_USERNAME, ISY_PASSWORD))
     except requests.exceptions.RequestException as err:
-        LOGGER.erro('Caught Exception in isy_get_var_state: ' + err)
+        LOGGER.error('Caught Exception in isy_get_var_state: ' + str(err))
         return        
     tree = ElementTree.fromstring(r.text)
     init = tree.find('init').text
@@ -172,7 +175,7 @@ def isy_get_var_id(name):
     try:
         r = requests.get('http://' + ISY_HOST + ':' + ISY_PORT + '/rest/vars/definitions/2', auth=HTTPBasicAuth(ISY_USERNAME, ISY_PASSWORD))
     except requests.exceptions.RequestException as err:
-        LOGGER.erro('Caught Exception in isy_get_var_id: ' + err)
+        LOGGER.error('Caught Exception in isy_get_var_id: ' + str(err))
         return  
     #LOGGER.info('Get_Var_ID: Request response: %s %s', r.status_code, r.text)
     tree = ElementTree.fromstring(r.text)
@@ -214,11 +217,11 @@ def set_doorstate(token, name, desired_state):
             try:
                 r = requests.put(post_url, data=payload)
             except requests.exceptions.RequestException as err:
-                LOGGER.erro('Caught Exception in set_doorstate: ' + err)
+                LOGGER.error('Caught Exception in set_doorstate: ' + str(err))
                 return              
             data = r.json()
             if data['ReturnCode'] != '0':
-                print (data['ErrorMessage'])
+                print(data['ErrorMessage'])
                 sys.exit(1)
     
 
@@ -228,11 +231,11 @@ def get_token():
     try:
         r = requests.get(login_url)
     except requests.exceptions.RequestException as err:
-        LOGGER.erro('Caught Exception in get_token: ' + err)
+        LOGGER.error('Caught Exception in get_token: ' + str(err))
         return              
     data = r.json()
     if data['ReturnCode'] != '0':
-        print (data['ErrorMessage'])
+        print(data['ErrorMessage'])
         sys.exit(1)
     return data['SecurityToken']
 
@@ -241,11 +244,11 @@ def get_doors(token):
     try:
         r = requests.get(system_detail)
     except requests.exceptions.RequestException as err:
-        LOGGER.erro('Caught Exception in get_doors: ' + err)
+        LOGGER.error('Caught Exception in get_doors: ' + str(err))
         return              
     data = r.json()
     if data['ReturnCode'] != '0':
-        print (data['ErrorMessage'])
+        print(data['ErrorMessage'])
         sys.exit(2)
     for device in data['Devices']:
         #MyQDeviceTypeId Doors == 2, Gateway == 1, Structure == 10, Thermostat == 11
@@ -262,13 +265,13 @@ def get_doorstate(token, id):
     try:
         r = requests.get(doorstate_url)
     except requests.exceptions.RequestException as err:
-        LOGGER.erro('Caught Exception in get_doorstate: ' + err)
+        LOGGER.error('Caught Exception in get_doorstate: ' + str(err))
         return              
     data = r.json()
     timestamp = float(data['UpdatedTime'])
     timestamp = time.strftime("%a %d %b %Y %H:%M:%S", time.localtime(timestamp / 1000.0))
     if data['ReturnCode'] != '0':
-        print (data['ErrorMessage'])
+        print(data['ErrorMessage'])
         sys.exit(3)
     return STATES[int(data['AttributeValue'])], timestamp
 
@@ -278,11 +281,11 @@ def get_doorname(token, id):
     try:
         r = requests.get(doorstate_url)
     except requests.exceptions.RequestException as err:
-        LOGGER.erro('Caught Exception in get_doorname: ' + err)
+        LOGGER.error('Caught Exception in get_doorname: ' + str(err))
         return     
     data = r.json()
     if data['ReturnCode'] != '0':
-        print (data['ErrorMessage'])
+        print(data['ErrorMessage'])
         sys.exit(3)
     return data['AttributeValue']
 
@@ -304,14 +307,14 @@ def gdoor_main():
         elif sys.argv[1].lower() == 'open' and sys.argv[2]:
             desired_state = 1
         else:
-            print ('Usage: ' + sys.argv[0] + ' [open/close/status] [door ID]')
+            print('Usage: ' + sys.argv[0] + ' [open/close/status] [door ID]')
             sys.exit(1)
     
     token = get_token()
     get_doors(token)
     if desired_state == 2:
         for inst in DOOR.instances:
-            print (inst.name +' is ' + inst.state +  '. Last changed at ' + inst.time)
+            print(inst.name +' is ' + inst.state +  '. Last changed at ' + inst.time)
             LOGGER.info('%s is %s. Last changed at %s', inst.name, inst.state, inst.time)
             if USE_ISY:
                 id, varname, init, value = isy_get_var_id(inst.name)
