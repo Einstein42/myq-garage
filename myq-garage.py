@@ -34,6 +34,7 @@ import time
 import os
 import logging
 import logging.handlers
+from ConfigParser import RawConfigParser
 # Try to use the C implementation first, falling back to python, these libraries are usually built-in libs. 
 try:
     from xml.etree import cElementTree as ElementTree
@@ -41,25 +42,34 @@ except ImportError, e:
     from xml.etree import ElementTree
 requests.packages.urllib3.disable_warnings()
 
-# Put your login information here
-USERNAME = 'user@email.com'
-PASSWORD = 'password'
+config = RawConfigParser()
+config.read('config.ini')
+
+#main Configuration
+USERNAME = config.get('main', 'USERNAME')
+PASSWORD = config.get('main', 'PASSWORD')
+BRAND = config.get('main', 'BRAND')
 
 # ISY Configuration
-# Set USE_ISY = False if you don't wish to use the ISY features
-USE_ISY = True
-ISY_HOST = '<isy ip address>'
-ISY_PORT = '80'
-ISY_USERNAME = 'admin'
-ISY_PASSWORD = 'password'
-ISY_VAR_PREFIX = 'MyQ_'
+USE_ISY = config.get('ISYConfiguration', 'USE_ISY')
+ISY_HOST = config.get('ISYConfiguration', 'USE_ISY')
+ISY_PORT = config.get('ISYConfiguration', 'USE_ISY')
+ISY_USERNAME = config.get('ISYConfiguration', 'USE_ISY')
+ISY_PASSWORD = config.get('ISYConfiguration', 'USE_ISY')
+ISY_VAR_PREFIX = config.get('ISYConfiguration', 'USE_ISY')
 
-# Do not change this is the URL for the MyQ API
-SERVICE = 'https://myqexternal.myqdevice.com'
-
-# Do not change the APPID or CULTURE this is global for the MyQ API
-APPID = 'Vj8pQggXLhLy0WHahglCD4N1nAkkXQtGYpq2HrHD7H1nvmbT55KqtN6RSF4ILB%2fi'
-CULTURE = 'en'
+#MyQ API Configuration
+if (BRAND == 'Chamberlain' or BRAND == 'chamberlain'):
+    SERVICE = config.get('APIglobal', 'ChamberSERVICE')
+    APPID = config.get('APIglobal', 'ChamberAPPID')
+    CULTURE = 'en'
+elif (BRAND == 'Craftsman' or BRAND == 'craftsman'):
+    SERVICE = config.get('APIglobal', 'CraftSERVICE')
+    APPID = config.get('APIglobal', 'CraftAPPID')
+    CULTURE = 'en'
+else:
+    print BRAND
+    print " is not a valid brand name. Check your configuration"
 
 
 # States value from API returns an interger, the index corresponds to the below list. Zero is not used. 
