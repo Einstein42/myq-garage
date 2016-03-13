@@ -20,11 +20,13 @@ OR
 2. apt-get install python-pip
 3. pip install requests
 
+Updated to work fully with Python2.7 or Python3.
+
 DONT FORGET TO CREATE YOUR STATE VARIABLES IN THE ISY, it will tell you if you forgot.
 There isn't currently a way to create these via API, I will update as soon as ISY allows state variable creation.
 
-Variable format is the setting from myq-garage.py "ISY_VAR_PREFIX + your door name. Substitute any spaces with '_' as 
-ISY doesn't allow spaces in variable names.
+Variable format is the setting from myq-garage.py "ISY_VAR_PREFIX + your door name. 
+Substitute any spaces with '_' as ISY doesn't allow spaces in variable names.
 eg. 'Big Door' is my door name in MyQ and my variable prefix is MyQ_ so I create the variable MyQ_Big_Door
 
 Variable is set to 1 when open, 0 when closed.
