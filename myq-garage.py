@@ -57,6 +57,7 @@ config.read('config.ini')
 USERNAME = config.get('main', 'USERNAME')
 PASSWORD = config.get('main', 'PASSWORD')
 BRAND = config.get('main', 'BRAND')
+TOKENTTL = config.get('main', 'TOKENTTL')
 
 # ISY Configuration
 USE_ISY = config.get('ISYConfiguration', 'USE_ISY')
@@ -67,14 +68,16 @@ ISY_PASSWORD = config.get('ISYConfiguration', 'ISY_PASSWORD')
 ISY_VAR_PREFIX = config.get('ISYConfiguration', 'ISY_VAR_PREFIX')
 
 #MyQ API Configuration
-if (BRAND == 'Chamberlain' or BRAND == 'chamberlain'):
+if (BRAND.lower() == 'chamberlain'):
     SERVICE = config.get('APIglobal', 'ChamberSERVICE')
     APPID = config.get('APIglobal', 'ChamberAPPID')
     CULTURE = 'en'
-elif (BRAND == 'Craftsman' or BRAND == 'craftsman'):
+    BRANDID = '2'
+elif (BRAND.lower() == 'craftsman'):
     SERVICE = config.get('APIglobal', 'CraftSERVICE')
     APPID = config.get('APIglobal', 'CraftAPPID')
     CULTURE = 'en'
+    BRANDID = '3'
 else:
     print(BRAND, " is not a valid brand name. Check your configuration")
 
@@ -207,19 +210,61 @@ class MyQ:
         self.baseurl = SERVICE
         self.username = USERNAME
         self.password = PASSWORD
-        self.headers = { "User-Agent": "Chamberlain/2786", "MyQApplicationId": self.appid }
-        self.authurl = self.baseurl+"/api/user/validatewithculture"
+        self.headers = { "User-Agent": "Chamberlain/3.73",
+                         "BrandId": BRANDID,
+                         "ApiVersion": "4.1",
+                         "Culture": CULTURE,
+                         "MyQApplicationId": self.appid }
+        self.authurl = self.baseurl+"/api/v4/User/Validate"
         self.enumurl = self.baseurl+"/api/v4/userdevicedetails/get"
         self.seturl  = self.baseurl+"/api/v4/DeviceAttribute/PutDeviceAttribute"
         self.geturl  = self.baseurl+"/api/v4/deviceattribute/getdeviceattribute"
-        self.tokenfname="/tmp/myqdata.json"
-        self.tokentimeout=60
-        self.login()
+        self.tokenfname="/tmp/myqtoken.json"
+        self.tokentimeout=TOKENTTL
+        self.read_token()
 
+    def loads(self, res):
+        if hasattr(json, "loads"):
+            res = json.loads(res)
+        else:
+            res = json.read(res)
+        return res
+
+    def save_token(self):
+        if (self.tokentimeout > 0):
+            ts=time.time()
+            token_file={}
+            token_file["SecurityToken"]=self.securitytoken
+            token_file["TimeStamp"]=datetime.datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")
+            json_data=json.dumps(token_file)
+            f = open(self.tokenfname,"w")
+            f.write(json_data)
+            f.close()
+            os.chmod(self.tokenfname, 0o600)
+
+    def read_token(self):
+        try:
+            f = open(self.tokenfname,"r")
+            data = f.read()
+        except IOError:
+            self.login()
+            return True
+        else:
+            res = self.loads(data)
+            f.close()
+            s = res["TimeStamp"]
+            tsfile = time.mktime(datetime.datetime.strptime(s, "%Y-%m-%d %H:%M:%S").timetuple())
+            ts = time.time()
+            if ((ts - tsfile) < 60*self.tokentimeout):
+                self.securitytoken=res["SecurityToken"]
+                return True
+            else:
+                self.login()
+                return True
 
     def login(self):
-        payload = { "appId": self.appid, "username": self.username, "password": self.password, "culture": "en" }
-        req=self.session.get(self.authurl, headers=self.headers, params=payload)
+        payload = { "username": self.username, "password": self.password }
+        req=self.session.post(self.authurl, headers=self.headers, json=payload)
 
         if (req.status_code != requests.codes.ok):
             print "Login err code: " + req.status_code
@@ -229,6 +274,7 @@ class MyQ:
         
         if (res["ReturnCode"] == "0"):    
             self.securitytoken = res["SecurityToken"]
+            self.save_token()
         else: 
             print "Authentication Failed"
             sys.exit(-1)
