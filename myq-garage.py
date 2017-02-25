@@ -233,7 +233,7 @@ class MyQ:
         return res
 
     def save_token(self):
-        if (self.tokentimeout > 0):
+        if (float(self.tokentimeout) > 0):
             ts=time.time()
             token_file={}
             token_file["SecurityToken"]=self.securitytoken
@@ -257,7 +257,7 @@ class MyQ:
             s = res["TimeStamp"]
             tsfile = time.mktime(datetime.datetime.strptime(s, "%Y-%m-%d %H:%M:%S").timetuple())
             ts = time.time()
-            if ((ts - tsfile) < 60*self.tokentimeout):
+            if ((ts - tsfile) < 60 * float(self.tokentimeout)):
                 self.securitytoken=res["SecurityToken"]
                 return True
             else:
