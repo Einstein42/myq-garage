@@ -96,9 +96,9 @@ STATES = ['',
 def setup_log(name):
    # Log Location
    PATH = os.path.dirname(sys.argv[0])
-   if not os.path.exists(PATH + '/logs'):
-       os.makedirs(PATH + '/logs')
-   LOG_FILENAME = PATH + "/logs/myq-garage.log"
+   if not os.path.exists(PATH + 'logs'):
+       os.makedirs(PATH + 'logs')
+   LOG_FILENAME = PATH + "logs/myq-garage.log"
    LOG_LEVEL = logging.INFO  # Could be e.g. "DEBUG" or "WARNING"
 
    #### Logging Section ################################################################################
