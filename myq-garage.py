@@ -347,6 +347,8 @@ class MyQ:
                             updtime = float(attr["UpdatedTime"])
                             timestamp = time.strftime("%a %d %b %Y %H:%M:%S", time.localtime(updtime / 1000.0))
                     DOOR(devid, desc, STATES[state], timestamp)
+        else:
+            return -1
         return DOOR.instances
 
 
@@ -372,6 +374,10 @@ def gdoor_main():
             
     myq = MyQ()
     door_instances = myq.get_doors()
+    if (door_instances == -1):
+        myq.login()
+        door_instances = myq.get_doors()
+
     if desired_state == 2:
         for inst in door_instances:
             print ('{} is {}. Last changed at {}'.format(inst.name, inst.state, inst.time))
