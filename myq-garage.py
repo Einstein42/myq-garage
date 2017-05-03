@@ -60,7 +60,7 @@ BRAND = config.get('main', 'BRAND')
 TOKENTTL = config.get('main', 'TOKENTTL')
 
 # ISY Configuration
-USE_ISY = config.get('ISYConfiguration', 'USE_ISY')
+USE_ISY = config.get('ISYConfiguration', 'USE_ISY') == 'True'
 ISY_HOST = config.get('ISYConfiguration', 'ISY_HOST')
 ISY_PORT = config.get('ISYConfiguration', 'ISY_PORT')
 ISY_USERNAME = config.get('ISYConfiguration', 'ISY_USERNAME')
@@ -81,19 +81,9 @@ elif (BRAND.lower() == 'craftsman'):
 else:
     print(BRAND, " is not a valid brand name. Check your configuration")
 
-
-# States value from API returns an interger, the index corresponds to the below list. Zero is not used. 
-STATES = ['',
-        'Open',
-        'Closed',
-        'Stopped',
-        'Opening',
-        'Closing',
-        ]
-        
 def setup_log(name):
    # Log Location
-   PATH = os.path.dirname(sys.argv[0])
+   PATH = os.getcwd()
    if not os.path.exists(PATH + '/logs'):
        os.makedirs(PATH + '/logs')
    LOG_FILENAME = PATH + "/logs/myq-garage.log"
@@ -130,20 +120,13 @@ class MyQLogger(object):
         """" Does nothing, pylist complained """
         pass
         
-class DOOR:
-    instances = []
-    
+class Device:
     def __init__(self, id, name, state, uptime):
-        DOOR.instances.append(self)
         self.id = id
         self.name = name
         self.state = state
         self.time = uptime
-    
-    def get_id(self):
-        return self.id
 
-        
 def isy_set_var_state(id, name, varname, value):
     init, val = isy_get_var_state(id)
     if value == int(val):
@@ -155,13 +138,12 @@ def isy_set_var_state(id, name, varname, value):
     except requests.exceptions.RequestException as err:
         LOGGER.error('Caught Exception in isy_set_var_state: ' + str(err))
         return
-    if int(r.status_code) != 200:
-        if int(r.status_code) == 404:
-            print(str(id), " not found on ISY. Response was 404")
-            LOGGER.error("%s not found on ISY. Response was 404", id)
-        else:
-            print("Status change failed, response from ISY: ", str(r.status_code), str(r.text))
-            LOGGER.error('Status change failed, response from ISY: %s - %s', str(r.status_code), str(r.text))
+    if int(r.status_code) == 404:
+        print(str(id), " not found on ISY. Response was 404")
+        LOGGER.error("%s not found on ISY. Response was 404", id)
+    elif int(r.status_code) != 200:
+        print("Status change failed, response from ISY: ", str(r.status_code), str(r.text))
+        LOGGER.error('Status change failed, response from ISY: %s - %s', str(r.status_code), str(r.text))
     else:
         print('{} changed successfully to {}'.format(varname, value))
   
@@ -205,9 +187,9 @@ def isy_get_var_id(name):
 
 class MyQ:
     def __init__(self):
+        baseurl = SERVICE + "/api/v4"
         self.session = requests.Session()
         self.appid = APPID
-        self.baseurl = SERVICE
         self.username = USERNAME
         self.password = PASSWORD
         self.headers = { "User-Agent": "Chamberlain/3.73",
@@ -215,20 +197,13 @@ class MyQ:
                          "ApiVersion": "4.1",
                          "Culture": CULTURE,
                          "MyQApplicationId": self.appid }
-        self.authurl = self.baseurl+"/api/v4/User/Validate"
-        self.enumurl = self.baseurl+"/api/v4/userdevicedetails/get"
-        self.seturl  = self.baseurl+"/api/v4/DeviceAttribute/PutDeviceAttribute"
-        self.geturl  = self.baseurl+"/api/v4/deviceattribute/getdeviceattribute"
+        self.authurl = baseurl+"/User/Validate"
+        self.enumurl = baseurl+"/userdevicedetails/get"
+        self.seturl  = baseurl+"/DeviceAttribute/PutDeviceAttribute"
+        self.geturl  = baseurl+"/deviceattribute/getdeviceattribute"
         self.tokenfname="/tmp/myqtoken.json"
         self.tokentimeout=TOKENTTL
         self.read_token()
-
-    def loads(self, res):
-        if hasattr(json, "loads"):
-            res = json.loads(res)
-        else:
-            res = json.read(res)
-        return res
 
     def save_token(self):
         if (self.tokentimeout > 0):
@@ -243,59 +218,47 @@ class MyQ:
             os.chmod(self.tokenfname, 0o600)
 
     def read_token(self):
-        try:
-            f = open(self.tokenfname,"r")
-            data = f.read()
-        except IOError:
-            self.login()
-            return True
+        if (os.path.isfile(self.tokenfname)):
+            with open(self.tokenfname,"r") as f:
+                data = f.read()
+            res = json.loads(data) if hasattr(json, "loads") else json.read(data)
+            self.securitytoken = res["SecurityToken"]
         else:
-            res = self.loads(data)
-            f.close()
-            s = res["TimeStamp"]
-            tsfile = time.mktime(datetime.datetime.strptime(s, "%Y-%m-%d %H:%M:%S").timetuple())
-            ts = time.time()
-            if ((ts - tsfile) < 60*self.tokentimeout):
-                self.securitytoken=res["SecurityToken"]
-                return True
-            else:
-                self.login()
-                return True
+            self.login()
 
     def login(self):
         payload = { "username": self.username, "password": self.password }
-        req=self.session.post(self.authurl, headers=self.headers, json=payload)
+        req = self.session.post(self.authurl, headers=self.headers, json=payload)
 
         if (req.status_code != requests.codes.ok):
             print "Login err code: " + req.status_code
             sys.exit(-1)
         
         res = req.json()
-        
         if (res["ReturnCode"] == "0"):    
             self.securitytoken = res["SecurityToken"]
             self.save_token()
         else: 
             print "Authentication Failed"
             sys.exit(-1)
-    
 
-    # Door Action = 0 for closed or 1 for open
-    def set_state(self, door, desired_state):
-        if door.state == 'Open' and desired_state == 1:
-            print(door.name + ' already open.')
+    # State = 0 for closed/off or 1 for open/on
+    def set_state(self, device, device_type, desired_state):
+        if device.state in ['Open', 'On'] and desired_state == 1:
+            print(device.name + ' already ' + device.state + '.')
             sys.exit(5)
-        if door.state == 'Closed' and desired_state == 0:
-             print(door.name + ' already closed.')
+        if device.state in ['Closed', 'Off'] and desired_state == 0:
+             print(device.name + ' already ' + device.state + '.')
              sys.exit(6)
-        post_data = {}
-        post_data["AttributeName"]  = "desireddoorstate"
-        post_data["MyQDeviceId"]       = door.id
-        post_data["ApplicationId"]  = self.appid
-        post_data["AttributeValue"] = desired_state
-        post_data["SecurityToken"]  = self.securitytoken
-        post_data["format"]  = "json"
-        post_data["nojsoncallback"]  = "1"
+        post_data = {
+            "AttributeName"  : "desired" + device_type + "state",
+            "MyQDeviceId"    : device.id,
+            "ApplicationId"  : self.appid,
+            "AttributeValue" : desired_state,
+            "SecurityToken"  : self.securitytoken,
+            "format"         : "json",
+            "nojsoncallback" : "1"
+        }
 
         self.session.headers.update({ "SecurityToken": self.securitytoken })
         payload = { "appId": self.appid, "SecurityToken": self.securitytoken }
@@ -314,8 +277,8 @@ class MyQ:
         else:    
             print "Can't set state, bad token?"
             return False
-              
-    def get_doors(self):
+        
+    def fetch_device_json(self):
         payload = { 
                 "appId": self.appid, 
                 "SecurityToken": self.securitytoken, 
@@ -326,74 +289,98 @@ class MyQ:
         self.session.headers.update({ "SecurityToken": self.securitytoken })
 
         req = self.session.get(self.enumurl, headers=self.headers, params=payload)
-
         if (req.status_code != requests.codes.ok):
             print "Enum err code: " + req.status_code
             return -1
+        return req.json()
 
-        res = req.json()
+    def get_state(self, dev_type, value):
+        # States value from API returns an interger, the index corresponds to the below list. Zero is not used. 
+        GARAGE_STATES = ['','Open','Closed','Stopped','Opening','Closing']
+        # "3" corresponds to a MyQ light
+        if dev_type == 3:
+            if value == 0:
+                return "Off"
+            elif value == 1:
+                return "On"
+        return GARAGE_STATES[value]
+        
+    def get_devices(self):
+        res = self.fetch_device_json()
+        # MyQ will tell us if our token is no longer valid. If so, delete the token and login again.
+        if (res["ReturnCode"] == "-3333"):
+            os.remove(self.tokenfname)
+            self.read_token()
+            res = self.fetch_device_json()
+        instances = []
         if (res["ReturnCode"] == "0"):
-            for d in res["Devices"]:
-                if (d["MyQDeviceTypeId"] == 2):
-                    devid = d["MyQDeviceId"]
-                    desc = None
-                    state = None
-                    updtime = None
-                    for attr in d["Attributes"]:
-                        if (attr["AttributeDisplayName"] == "desc"): 
-                            desc = str(attr["Value"])
-                        if (attr["AttributeDisplayName"] == "doorstate"): 
-                            state = int(attr["Value"])
-                            updtime = float(attr["UpdatedTime"])
-                            timestamp = time.strftime("%a %d %b %Y %H:%M:%S", time.localtime(updtime / 1000.0))
-                    DOOR(devid, desc, STATES[state], timestamp)
-        return DOOR.instances
+            devices = [d for d in res["Devices"] if d["MyQDeviceTypeId"] in [2,3]]
+            for d in devices:
+                dev_type = int(d["MyQDeviceTypeId"])
+                dev_id = d["MyQDeviceId"]
+                for attr in d["Attributes"]:
+                    if (attr["AttributeDisplayName"] == "desc"): 
+                        desc = str(attr["Value"])
+                    elif (attr["AttributeDisplayName"] in ["doorstate", "lightstate"]):
+                        state = self.get_state(dev_type, int(attr["Value"]))
+                        updtime = float(attr["UpdatedTime"])
+                        timestamp = time.strftime("%a %d %b %Y %H:%M:%S", time.localtime(updtime / 1000.0))
+                instances.append(Device(dev_id, desc, state, timestamp))
+        return instances
 
+def show_usage():
+    print('Usage: \n' +
+        '  ' + sys.argv[0] + ' status\n' +
+        '  ' + sys.argv[0] + ' [open/close/on/off] [device ID]')
+    sys.exit(1)
 
-def gdoor_main():
+def myq_main():
     if len(sys.argv) < 2:
-        print('Usage: ' + sys.argv[0] + ' [open/close/status] [door ID]')
-        sys.exit(1)
-
+        show_usage()
     elif len(sys.argv) == 2:
         if sys.argv[1].lower() == 'status':
             desired_state = 2
         else:
-            print('Usage: ' + sys.argv[0] + ' [open/close/status] [door ID]')
-            sys.exit(1)
+            show_usage()
     else:
         if sys.argv[1].lower() == 'close' and sys.argv[2]:
+            device_type = 'door'
             desired_state = 0
         elif sys.argv[1].lower() == 'open' and sys.argv[2]:
+            device_type = 'door'
+            desired_state = 1
+        elif sys.argv[1].lower() == 'off' and sys.argv[2]:
+            device_type = 'light'
+            desired_state = 0
+        elif sys.argv[1].lower() == 'on' and sys.argv[2]:
+            device_type = 'light'
             desired_state = 1
         else:
-            print('Usage: ' + sys.argv[0] + ' [open/close/status] [door ID]')
-            sys.exit(1)
+            show_usage()
             
     myq = MyQ()
-    door_instances = myq.get_doors()
+    device_instances = myq.get_devices()
     if desired_state == 2:
-        for inst in door_instances:
+        for inst in device_instances:
             print ('{} is {}. Last changed at {}'.format(inst.name, inst.state, inst.time))
             LOGGER.info('%s is %s. Last changed at %s', inst.name, inst.state, inst.time)
             if USE_ISY:
                 id, varname, init, value = isy_get_var_id(inst.name)
-                if inst.state == "Open": value = 1
-                else: value = 0
+                value = 1 if inst.state in ["Open","On"] else 0
                 isy_set_var_state(id, inst.name, varname, value)
     else:
         success = False
-        for inst in door_instances:
-            doorname = " ".join(sys.argv[2:])
-            if doorname.lower() == inst.name.lower():
-                myq.set_state(inst, desired_state)
+        for inst in device_instances:
+            name = " ".join(sys.argv[2:])
+            if name.lower() == inst.name.lower():
+                myq.set_state(inst, device_type, desired_state)
                 if USE_ISY:
                     id, varname, init, value = isy_get_var_id(inst.name)
                     isy_set_var_state(id, inst.name, varname, desired_state)
                 print(inst.name + ' found. Setting state to ' + sys.argv[1].lower())
                 success = True
         if not success:
-            print(doorname + ' not found in available doors.')
+            print(name + ' not found in available devices.')
 
 
 #####################################################
@@ -404,6 +391,5 @@ if __name__ == "__main__":
     # sys.stdout = SensorLogger(LOGGER, logging.INFO)
     # Replace stderr with logging to file at ERROR level
     sys.stderr = MyQLogger(LOGGER, logging.ERROR)
-    gdoor_main()
-
+    myq_main()
 

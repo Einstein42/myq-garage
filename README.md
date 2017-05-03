@@ -1,7 +1,7 @@
 # myq-garage
-Python Chamberlain Garage Door interface
+Python Chamberlain Garage Door & Light Switch interface
 
-Python used to interface with my MyQ garage doors. 
+Python used to interface with my MyQ garage doors and light switches. 
 Load it as a module, or download it and run directly.
 
 1. Download myq-garage.py to your device. Or use git ("git clone https://github.com/Einstein42/myq-garage.git")
@@ -10,9 +10,11 @@ Load it as a module, or download it and run directly.
 4. Edit the file and put your myq username and password. Including ISY information if applicable.
 
 Then use like so:
-Command Line options:  ./myq-garage.py [open/close/status] [door name]
-Door name is the name you set in the MyQ webpage for the device. If you don't know your door name, 
-then just ./myq-garage.py status and it will return the doornames and status from the MyQ portal. 
+Command Line options:
+  Device Statuses: ./myq-garage.py status
+  Set Status:      ./myq-garage.py [open/close/on/off] [device name]
+Device name is the name you set in the MyQ webpage for the device. If you don't know your device name, 
+then just ./myq-garage.py status and it will return the names and status from the MyQ portal. 
 
 Requires the requests package in python
 1. apt-get install python-requests
@@ -25,11 +27,11 @@ Updated to work fully with Python2.7 or Python3.
 DONT FORGET TO CREATE YOUR STATE VARIABLES IN THE ISY, it will tell you if you forgot.
 There isn't currently a way to create these via API, I will update as soon as ISY allows state variable creation.
 
-Variable format is the setting from myq-garage.py "ISY_VAR_PREFIX + your door name. 
+Variable format is the setting from myq-garage.py "ISY_VAR_PREFIX + your device name. 
 Substitute any spaces with '_' as ISY doesn't allow spaces in variable names.
 eg. 'Big Door' is my door name in MyQ and my variable prefix is MyQ_ so I create the variable MyQ_Big_Door
 
-Variable is set to 1 when open, 0 when closed.
+Variable is set to 1 when open/on, 0 when closed/off.
 
 If you want to run this so it updates your state variables in ISY automatically every 5 minutes
 you can add a crontab entry on your linux/raspbian like so:
