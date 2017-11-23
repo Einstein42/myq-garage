@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.7
+#!/usr/bin/python3
 
 ## Python to interface with MyQ garage doors.
 ## Thanks to xKing for the new API stuff. Find him on the UDI Forums.
@@ -26,6 +26,8 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 '''
+
+from __future__ import print_function
 
 import requests
 from requests.auth import HTTPBasicAuth
@@ -206,7 +208,7 @@ class MyQ:
         self.read_token()
 
     def save_token(self):
-        if (self.tokentimeout > 0):
+        if (float(self.tokentimeout) > 0):
             ts=time.time()
             token_file={}
             token_file["SecurityToken"]=self.securitytoken
@@ -231,7 +233,7 @@ class MyQ:
         req = self.session.post(self.authurl, headers=self.headers, json=payload)
 
         if (req.status_code != requests.codes.ok):
-            print "Login err code: " + req.status_code
+            print ("Login err code: " + req.status_code)
             sys.exit(-1)
         
         res = req.json()
@@ -239,7 +241,7 @@ class MyQ:
             self.securitytoken = res["SecurityToken"]
             self.save_token()
         else: 
-            print "Authentication Failed"
+            print ("Authentication Failed")
             sys.exit(-1)
 
     # State = 0 for closed/off or 1 for open/on
@@ -266,16 +268,16 @@ class MyQ:
         req = self.session.put(self.seturl, headers=self.headers, params=payload, data=post_data)
 
         if (req.status_code != requests.codes.ok):
-            print "Enum err code: " + req.status_code
+            print ("Enum err code: " + req.status_code)
             return -1
 
         res = req.json()
         
         if (res["ReturnCode"] == "0"):
-            print "status changed"
+            print ("status changed")
             return True
         else:    
-            print "Can't set state, bad token?"
+            print ("Can't set state, bad token?")
             return False
         
     def fetch_device_json(self):
@@ -290,7 +292,7 @@ class MyQ:
 
         req = self.session.get(self.enumurl, headers=self.headers, params=payload)
         if (req.status_code != requests.codes.ok):
-            print "Enum err code: " + req.status_code
+            print ("Enum err code: " + req.status_code)
             return -1
         return req.json()
 
@@ -335,6 +337,7 @@ def show_usage():
     sys.exit(1)
 
 def myq_main():
+
     if len(sys.argv) < 2:
         show_usage()
     elif len(sys.argv) == 2:
